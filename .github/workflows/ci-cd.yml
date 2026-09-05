@@ -31,13 +31,13 @@ jobs:
       - name: Build USER_MGMT Fat JAR
         run: |
           cd USER_MGMT
-          mvn clean package -DskipTests
+          mvn clean package -Dmaven.test.skip=true
 
       # Step 1.4: Compile & Package notification-audit-service using pre-installed Maven
       - name: Build notification-audit-service Fat JAR
         run: |
           cd notification-audit-service
-          mvn clean package -DskipTests
+          mvn clean package -Dmaven.test.skip=true
 
   # ==============================================================================
   # JOB 2: Build Docker Images & Push to Docker Hub
@@ -61,8 +61,8 @@ jobs:
 
       - name: Package JAR Artifacts
         run: |
-          (cd USER_MGMT && mvn clean package -DskipTests)
-          (cd notification-audit-service && mvn clean package -DskipTests)
+          (cd USER_MGMT && mvn clean package -Dmaven.test.skip=true)
+          (cd notification-audit-service && mvn clean package -Dmaven.test.skip=true)
 
       # Step 2.3: Set up Docker Buildx engine on runner VM
       - name: Set up Docker Buildx
