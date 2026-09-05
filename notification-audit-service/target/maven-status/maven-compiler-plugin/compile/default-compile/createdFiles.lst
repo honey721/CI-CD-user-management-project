@@ -1,0 +1,10 @@
+com\example\notificationaudit\service\AuditService.class
+com\example\notificationaudit\config\RabbitMQConfig.class
+com\example\notificationaudit\entity\AuditLog.class
+com\example\notificationaudit\listener\UserEventListener.class
+com\example\notificationaudit\controller\AuditController.class
+com\example\notificationaudit\NotificationAuditApplication.class
+com\example\notificationaudit\dto\UserLoggedInEvent.class
+com\example\notificationaudit\repository\AuditLogRepository.class
+com\example\notificationaudit\service\EmailService.class
+com\example\notificationaudit\dto\UserRegisteredEvent.class

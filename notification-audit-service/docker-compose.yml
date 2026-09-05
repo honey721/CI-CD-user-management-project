@@ -1,0 +1,102 @@
+version: "3.8"
+
+# ============================================================
+#  COMPLETE USER MGMT SYSTEM
+#  Runs: USER_MGMT (producer) + notification-audit-service (consumer)
+#        + MySQL x2 (separate DBs) + RabbitMQ (shared broker)
+# ============================================================
+
+services:
+
+  # ── Shared Message Broker ──────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"       # AMQP protocol
+      - "15672:15672"     # Management UI (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── USER_MGMT Database ─────────────────────────────────────
+  mysql-usermgmt:
+    image: mysql:8.0
+    container_name: mysql-usermgmt
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: usermgmt
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-usermgmt-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Audit Service Database (separate DB!) ──────────────────
+  mysql-auditdb:
+    image: mysql:8.0
+    container_name: mysql-auditdb
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: auditdb
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-auditdb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── USER_MGMT Service (Producer) ───────────────────────────
+  user-mgmt-service:
+    build:
+      context: ./user-mgmt-service    # path to USER_MGMT project
+    container_name: user-mgmt-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-usermgmt:3306/usermgmt?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: rootpassword
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql-usermgmt:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ── Notification + Audit Service (Consumer) ────────────────
+  notification-audit-service:
+    build:
+      context: ./notification-audit-service   # path to this project
+    container_name: notification-audit-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-auditdb:3306/auditdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: rootpassword
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      # Override mail settings via env if needed
+      # SPRING_MAIL_HOST: smtp.mailtrap.io
+      # SPRING_MAIL_USERNAME: your_username
+      # SPRING_MAIL_PASSWORD: your_password
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql-auditdb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  mysql-usermgmt-data:
+  mysql-auditdb-data:
