@@ -1,0 +1,103 @@
+name: CI/CD Microservices Pipeline
+
+# Trigger pipeline automatically on git push or pull request to main/master branch
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  # ==============================================================================
+  # JOB 1: Compile Java Code & Run Maven Package Builds
+  # ==============================================================================
+  build-and-test:
+    name: Build & Package Microservices
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1.1: Download/Checkout source code from GitHub repository
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # Step 1.2: Install Java 17 Temurin JDK on the runner VM
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # Step 1.3: Make Maven Wrappers Executable
+      - name: Make Maven Wrappers Executable
+        run: |
+          chmod +x ./USER_MGMT/mvnw
+          chmod +x ./notification-audit-service/mvnw
+
+      # Step 1.4: Compile & Package USER_MGMT
+      - name: Build USER_MGMT Fat JAR
+        run: |
+          cd USER_MGMT
+          ./mvnw clean package -DskipTests
+
+      # Step 1.5: Compile & Package notification-audit-service
+      - name: Build notification-audit-service Fat JAR
+        run: |
+          cd notification-audit-service
+          ./mvnw clean package -DskipTests
+
+  # ==============================================================================
+  # JOB 2: Build Docker Images & Push to Docker Hub
+  # ==============================================================================
+  docker-build-and-push:
+    name: Build & Push Docker Images
+    needs: build-and-test  # Waits for Job 1 to succeed first
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 2.1: Download source code
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # Step 2.2: Set up JDK 17 & Package JARs for Docker build context
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Package JAR Artifacts
+        run: |
+          chmod +x ./USER_MGMT/mvnw ./notification-audit-service/mvnw
+          (cd USER_MGMT && ./mvnw clean package -DskipTests)
+          (cd notification-audit-service && ./mvnw clean package -DskipTests)
+
+      # Step 2.3: Set up Docker Buildx engine on runner VM
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 2.4: Log in to Docker Hub using GitHub Encrypted Secrets
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Step 2.5: Build & Push USER_MGMT Docker Image
+      - name: Build and Push USER_MGMT Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./USER_MGMT
+          file: ./USER_MGMT/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/user-mgmt-service:latest
+
+      # Step 2.6: Build and Push notification-audit-service Docker Image
+      - name: Build and Push notification-audit-service Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./notification-audit-service
+          file: ./notification-audit-service/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/notification-audit-service:latest

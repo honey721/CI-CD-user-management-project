@@ -1,0 +1,105 @@
+================================================================================
+  📚 MASTER GUIDE: GITHUB ACTIONS CI/CD PIPELINE & YAML LINE-BY-LINE EXPLANATION
+================================================================================
+
+--------------------------------------------------------------------------------
+PART 1: PIPELINE OVERVIEW & DIRECTORY STRUCTURE
+--------------------------------------------------------------------------------
+
+Target Directory: `D:\Project's\User Management\CI CD Implementation`
+
+Project Layout:
+CI CD Implementation/
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml                           <-- Master GitHub Actions Workflow
+├── USER_MGMT/
+│   ├── Dockerfile
+│   └── pom.xml
+└── notification-audit-service/
+    ├── Dockerfile
+    └── pom.xml
+
+
+--------------------------------------------------------------------------------
+PART 2: LINE-BY-LINE EXPLANATION OF `.github/workflows/ci-cd.yml`
+--------------------------------------------------------------------------------
+
+1. `name: CI/CD Microservices Pipeline`
+   - Gives the workflow a human-readable title displayed in the GitHub Actions tab.
+
+2. `on: push: branches: [ "main", "master" ]`
+   - THE EVENT TRIGGER: Automatically starts this workflow whenever anyone pushes 
+     new code commits to the `main` or `master` git branch.
+
+3. `jobs:`
+   - Groups the automated work into individual execution jobs.
+
+4. `build-and-test:` (JOB 1)
+   - `runs-on: ubuntu-latest`: Requests GitHub to spin up a clean Linux Ubuntu 
+     virtual machine (Runner) in the cloud.
+
+5. `steps:`
+   - Sequential tasks executed by the Runner VM:
+
+   Step A: `uses: actions/checkout@v4`
+   - Clones/downloads your source code repository into the Runner VM's local hard drive.
+
+   Step B: `uses: actions/setup-java@v4`
+   - Installs JDK 17 Temurin distribution on the Runner VM and enables Maven caching.
+
+   Step C: `chmod +x ./USER_MGMT/mvnw ./notification-audit-service/mvnw`
+   - Gives execute permissions to the Linux Maven Wrapper scripts.
+
+   Step D: `./mvnw clean package -DskipTests`
+   - Compiles `.java` files and packages runnable fat `.jar` artifacts in `target/`.
+
+6. `docker-build-and-push:` (JOB 2)
+   - `needs: build-and-test`: JOB DEPENDENCY. Ensures Job 2 ONLY runs if Job 1 succeeds!
+
+   Step E: `uses: docker/setup-buildx-action@v3`
+   - Installs Docker Buildx build engine on the Runner VM.
+
+   Step F: `uses: docker/login-action@v3`
+   - Logs into Docker Hub using encrypted secrets: `${{ secrets.DOCKERHUB_USERNAME }}` 
+     and `${{ secrets.DOCKERHUB_TOKEN }}`.
+
+   Step G: `uses: docker/build-push-action@v5`
+   - Builds the Docker image from `Dockerfile` and automatically pushes the image 
+     to Docker Hub registry (`username/user-mgmt-service:latest`).
+
+
+--------------------------------------------------------------------------------
+PART 3: HOW TO SETUP GITHUB SECRETS (STEP-BY-STEP)
+--------------------------------------------------------------------------------
+
+To allow GitHub Actions to push images to Docker Hub securely without leaking passwords:
+
+1. Go to your GitHub Repository in your browser.
+2. Click **Settings** (top right tab).
+3. In left sidebar, click **Secrets and variables** --> **Actions**.
+4. Click **New repository secret**:
+   - Secret 1:
+     - Name  : `DOCKERHUB_USERNAME`
+     - Value : Your Docker Hub username (e.g. `john_doe`)
+   - Secret 2:
+     - Name  : `DOCKERHUB_TOKEN`
+     - Value : Your Docker Hub Personal Access Token (or password)
+5. Click **Add secret**.
+
+
+--------------------------------------------------------------------------------
+PART 4: HOW TO TRIGGER & MONITOR THE PIPELINE
+--------------------------------------------------------------------------------
+
+1. Open terminal and push code to GitHub:
+   git add .
+   git commit -m "Add GitHub Actions CI/CD Pipeline"
+   git push origin main
+
+2. Open your GitHub Repository in your browser and click the **Actions** tab.
+3. You will see your pipeline running live with green checkmarks! ✅
+
+================================================================================
+                             END OF MASTER GUIDE
+================================================================================
