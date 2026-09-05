@@ -28,23 +28,17 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Step 1.3: Make Maven Wrappers Executable
-      - name: Make Maven Wrappers Executable
-        run: |
-          chmod +x ./USER_MGMT/mvnw
-          chmod +x ./notification-audit-service/mvnw
-
-      # Step 1.4: Compile & Package USER_MGMT
+      # Step 1.3: Compile & Package USER_MGMT using pre-installed Maven
       - name: Build USER_MGMT Fat JAR
         run: |
           cd USER_MGMT
-          ./mvnw clean package -DskipTests
+          mvn clean package -DskipTests
 
-      # Step 1.5: Compile & Package notification-audit-service
+      # Step 1.4: Compile & Package notification-audit-service using pre-installed Maven
       - name: Build notification-audit-service Fat JAR
         run: |
           cd notification-audit-service
-          ./mvnw clean package -DskipTests
+          mvn clean package -DskipTests
 
   # ==============================================================================
   # JOB 2: Build Docker Images & Push to Docker Hub
@@ -69,9 +63,8 @@ jobs:
 
       - name: Package JAR Artifacts
         run: |
-          chmod +x ./USER_MGMT/mvnw ./notification-audit-service/mvnw
-          (cd USER_MGMT && ./mvnw clean package -DskipTests)
-          (cd notification-audit-service && ./mvnw clean package -DskipTests)
+          (cd USER_MGMT && mvn clean package -DskipTests)
+          (cd notification-audit-service && mvn clean package -DskipTests)
 
       # Step 2.3: Set up Docker Buildx engine on runner VM
       - name: Set up Docker Buildx
